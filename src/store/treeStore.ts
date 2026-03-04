@@ -7,6 +7,7 @@ export interface TreeState {
   currentNode: Node | null; // Algorithm's active node
   useAlphaBeta: boolean;
   isRunning: boolean;
+  isComplete: boolean;
   history: any[];
   scale: number;
   offset: { x: number; y: number };
@@ -24,6 +25,7 @@ const initialState: TreeState = {
   currentNode: null,
   useAlphaBeta: true,
   isRunning: false,
+  isComplete: false,
   history: [],
   scale: 1.0,
   offset: { x: 0, y: 0 },
@@ -39,6 +41,7 @@ const [state, setState] = createStore<TreeState>(initialState);
 
 // Selectors
 export const useTreeState = () => state;
+export const isAlgorithmComplete = () => state.isComplete;
 
 // Actions
 export const setUseAlphaBeta = (value: boolean) => setState("useAlphaBeta", value);
@@ -65,6 +68,7 @@ export const setSelectedNode = (node: Node | null) => {
 export const resetAlgorithm = () => {
   setState(produce((s) => {
     s.isRunning = false;
+    s.isComplete = false;
     s.currentNode = null;
     s.history = [];
     s.explorationPath = [];
@@ -245,23 +249,28 @@ export const computeGlobalBestPath = (root: Node | null): Node[] => {
 
 export const stepForward = () => {
   setState(produce((s) => {
-    if (!s.root) return;
+    if (!s.root || s.isComplete) return;
 
     // Save history
     s.history.push(JSON.stringify({
       root: s.root.serialize(),
       currentNodePath: getNodePath(s.currentNode, s.root),
       isRunning: s.isRunning,
+      explorationPath: s.explorationPath.map(n => getNodePath(n, s.root)),
     }));
 
     if (s.currentNode) {
       s.currentNode = s.currentNode.minimax(s.useAlphaBeta);
       // Update exploration path to show where algorithm currently is
       s.explorationPath = buildExplorationPath(s.currentNode);
-      // Also track final global path for when algorithm completes
+      
+      // Check if algorithm just completed
       if (!s.currentNode) {
-        // Algorithm finished, exploration path from root gives us final path
-        s.finalGlobalPath = buildExplorationPath(s.currentNode);
+        s.isComplete = true;
+        s.isRunning = false;
+        s.finalGlobalPath = computeGlobalBestPath(s.root);
+        s.showGlobalPath = true; // Auto-enable global path highlight
+        s.explorationPath = [];
       }
     } else {
       s.isRunning = true;
@@ -278,7 +287,7 @@ export const stepForward = () => {
 
 export const runAll = () => {
   setState(produce((s) => {
-    if (!s.root) return;
+    if (!s.root || s.isComplete) return;
     if (!s.currentNode) {
       s.isRunning = true;
       s.selectedNode = null;
@@ -302,7 +311,11 @@ export const runAll = () => {
     }
     
     // After completion, compute the final optimal global path
+    s.isComplete = true;
+    s.isRunning = false;
     s.finalGlobalPath = computeGlobalBestPath(s.root);
+    s.showGlobalPath = true; // Auto-enable global path highlight
+    s.explorationPath = [];
   }));
 };
 
@@ -314,6 +327,7 @@ export const stepBack = () => {
     s.layers = rebuildLayerCache(s.root);
     s.currentNode = findNodeByPath(currentNodePath, s.root);
     s.isRunning = isRunning;
+    s.isComplete = false; // No longer complete when we step back
     s.selectedNode = null;
     // Restore exploration path if available
     if (explorationPath && Array.isArray(explorationPath)) {
@@ -321,6 +335,8 @@ export const stepBack = () => {
     } else {
       s.explorationPath = buildExplorationPath(s.currentNode);
     }
+    // Reset global path display (user can re-enable if desired)
+    s.finalGlobalPath = [];
   }));
 };
 

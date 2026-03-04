@@ -135,17 +135,17 @@ export const Sidebar: Component = () => {
           </div>
           
           <div class="d-grid gap-2">
-            <button id="run" class="btn btn-dark btn-lg" onClick={runAll}>
+            <button id="run" class="btn btn-dark btn-lg" onClick={runAll} disabled={state.isComplete || !state.root}>
               <i class="fas fa-play me-2"></i>Run All
             </button>
             <div class="row g-2">
               <div class="col-6">
-                <button id="stepBack" class="btn btn-outline-secondary w-100" onClick={stepBack}>
+                <button id="stepBack" class="btn btn-outline-secondary w-100" onClick={stepBack} disabled={!state.root || state.history.length === 0}>
                   <i class="fas fa-step-backward me-1"></i>Back
                 </button>
               </div>
               <div class="col-6">
-                <button id="step" class="btn btn-secondary w-100" onClick={stepForward}>
+                <button id="step" class="btn btn-secondary w-100" onClick={stepForward} disabled={state.isComplete || !state.root}>
                   <i class="fas fa-step-forward me-1"></i>Forward
                 </button>
               </div>

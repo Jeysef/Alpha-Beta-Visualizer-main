@@ -2,7 +2,7 @@ import { onMount, onCleanup, Show, type Component } from "solid-js";
 import { Header } from "./components/Header";
 import { Sidebar } from "./components/Sidebar";
 import { Visualizer } from "./components/Visualizer";
-import { generateRandomTree, stepForward, stepBack, resetAlgorithm } from "./store/treeStore";
+import { generateRandomTree, stepForward, stepBack, resetAlgorithm, isAlgorithmComplete } from "./store/treeStore";
 import { useUIState } from "./store/uiStore";
 
 const App: Component = () => {
@@ -17,7 +17,9 @@ const App: Component = () => {
 
       if (e.code === "ArrowRight") {
         e.preventDefault();
-        stepForward();
+        if (!isAlgorithmComplete()) {
+          stepForward();
+        }
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
         stepBack();
