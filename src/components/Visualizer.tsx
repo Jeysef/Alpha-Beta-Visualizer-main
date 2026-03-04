@@ -83,11 +83,14 @@ export const Visualizer: Component = () => {
     if (state.root) {
       setNodeRadius(canvasRef, state.layers);
       setNodePositions(canvasRef, state.layers);
-      state.root.draw(ctx, state.useAlphaBeta, state.selectedNode === state.root, state.showHistory);
+      
+      state.root.draw(ctx, state.useAlphaBeta, state.selectedNode === state.root, state.showHistory, 
+                      state.showLocalPath, state.showGlobalPath, state.explorationPath, state.finalGlobalPath);
       
       // Handle highlighting for other selected nodes
       if (state.selectedNode && state.selectedNode !== state.root) {
-         state.selectedNode.draw(ctx, state.useAlphaBeta, true, state.showHistory);
+         state.selectedNode.draw(ctx, state.useAlphaBeta, true, state.showHistory,
+                                 state.showLocalPath, state.showGlobalPath, state.explorationPath, state.finalGlobalPath);
       }
       
       // Also draw algorithm's current node highlight if running
@@ -139,6 +142,10 @@ export const Visualizer: Component = () => {
     state.currentNode;
     state.useAlphaBeta;
     state.showHistory;
+    state.showLocalPath;
+    state.showGlobalPath;
+    state.explorationPath;
+    state.finalGlobalPath;
     state.isRunning;
     state.scale;
     state.offset;

@@ -12,6 +12,10 @@ export interface TreeState {
   offset: { x: number; y: number };
   layers: Node[][];
   showHistory: boolean;
+  showLocalPath: boolean;
+  showGlobalPath: boolean;
+  explorationPath: Node[];
+  finalGlobalPath: Node[];
 }
 
 const initialState: TreeState = {
@@ -25,6 +29,10 @@ const initialState: TreeState = {
   offset: { x: 0, y: 0 },
   layers: [],
   showHistory: false,
+  showLocalPath: false,
+  showGlobalPath: false,
+  explorationPath: [],
+  finalGlobalPath: [],
 };
 
 const [state, setState] = createStore<TreeState>(initialState);
@@ -35,6 +43,19 @@ export const useTreeState = () => state;
 // Actions
 export const setUseAlphaBeta = (value: boolean) => setState("useAlphaBeta", value);
 export const setShowHistory = (value: boolean) => setState("showHistory", value);
+export const setShowLocalPath = (value: boolean) => setState("showLocalPath", value);
+export const setShowGlobalPath = (value: boolean) => setState("showGlobalPath", value);
+
+// Helper to build exploration path from current node to root
+const buildExplorationPath = (node: Node | null): Node[] => {
+  const path: Node[] = [];
+  let current = node;
+  while (current) {
+    path.unshift(current);
+    current = current.parent;
+  }
+  return path;
+};
 
 export const setSelectedNode = (node: Node | null) => {
   if (state.isRunning) return;
@@ -46,6 +67,8 @@ export const resetAlgorithm = () => {
     s.isRunning = false;
     s.currentNode = null;
     s.history = [];
+    s.explorationPath = [];
+    s.finalGlobalPath = [];
     if (s.root) {
       const traverse = (n: Node) => {
         n.pruned = false;
@@ -56,6 +79,7 @@ export const resetAlgorithm = () => {
         n.betaHistory = [];
         n.childSearchDone = false;
         n.currentChildSearch = 0;
+        n.currentBestChildIndex = -1;
         n.returnValue = null;
         if (n.children.length > 0) {
           n.value = null;
@@ -126,7 +150,7 @@ const getNodePath = (target: Node | null, root: Node | null): number[] | null =>
       path.unshift(current.parent.children.indexOf(current));
       current = current.parent;
     } else {
-      return null; // Should not happen if target is in root's tree
+      return null;
     }
   }
   return path;
@@ -145,6 +169,80 @@ const findNodeByPath = (path: number[] | null, root: Node | null): Node | null =
   return current;
 };
 
+// Compute local best paths (each node's preferred child)
+export const computeLocalBestPaths = (root: Node | null): Map<Node, Node> => {
+  const localBest = new Map<Node, Node>();
+  if (!root) return localBest;
+  
+  const traverse = (node: Node) => {
+    if (node.children.length === 0) return;
+    
+    // Find best child based on current values
+    let bestChild: Node | null = null;
+    let bestValue: number = node.max ? -Infinity : Infinity;
+    
+    for (const child of node.children) {
+      if (child.value !== null) {
+        const isBetter = node.max ? child.value > bestValue : child.value < bestValue;
+        if (isBetter) {
+          bestValue = child.value;
+          bestChild = child;
+        }
+      }
+    }
+    
+    if (bestChild) {
+      localBest.set(node, bestChild);
+    }
+    
+    node.children.forEach(traverse);
+  };
+  
+  traverse(root);
+  return localBest;
+};
+
+// Compute global best path (optimal path from root to leaf)
+export const computeGlobalBestPath = (root: Node | null): Node[] => {
+  if (!root || root.children.length === 0) return root ? [root] : [];
+  
+  const path: Node[] = [];
+  let current: Node | null = root;
+  
+  while (current) {
+    path.push(current);
+    
+    if (current.children.length === 0) break;
+    
+    // Find the child that matches the current node's value
+    let bestChild: Node | null = null;
+    for (const child of current.children) {
+      if (child.value === current.value) {
+        bestChild = child;
+        break;
+      }
+    }
+    
+    // If no exact match, pick the best one
+    if (!bestChild && current.children.length > 0) {
+      let bestValue: number = current.max ? -Infinity : Infinity;
+      for (const child of current.children) {
+        if (child.value !== null) {
+          const isBetter = current.max ? child.value > bestValue : child.value < bestValue;
+          if (isBetter) {
+            bestValue = child.value;
+            bestChild = child;
+          }
+        }
+      }
+    }
+    
+    current = bestChild;
+  }
+  
+  return path;
+};
+
 export const stepForward = () => {
   setState(produce((s) => {
     if (!s.root) return;
@@ -158,6 +256,13 @@ export const stepForward = () => {
 
     if (s.currentNode) {
       s.currentNode = s.currentNode.minimax(s.useAlphaBeta);
+      // Update exploration path to show where algorithm currently is
+      s.explorationPath = buildExplorationPath(s.currentNode);
+      // Also track final global path for when algorithm completes
+      if (!s.currentNode) {
+        // Algorithm finished, exploration path from root gives us final path
+        s.finalGlobalPath = buildExplorationPath(s.currentNode);
+      }
     } else {
       s.isRunning = true;
       s.selectedNode = null;
@@ -166,24 +271,10 @@ export const stepForward = () => {
       s.root.alphaHistory = [-Infinity];
       s.root.betaHistory = [Infinity];
       s.currentNode = s.root;
+      s.explorationPath = [s.root];
     }
   }));
 };
-
-// export const runAll = () => {
-//   setState(produce((s) => {
-//     if (!s.root) return;
-//     if (!s.currentNode) {
-//       s.isRunning = true;
-//       s.selectedNode = null;
-//       s.root.alpha = -Infinity;
-//       s.root.beta = Infinity;
-//       s.root.alphaHistory = [-Infinity];
-//       s.root.betaHistory = [Infinity];
-//       s.currentNode = s.root;
-//     }
-//   }));
-// };
 
 export const runAll = () => {
   setState(produce((s) => {
@@ -196,29 +287,40 @@ export const runAll = () => {
       s.root.alphaHistory = [-Infinity];
       s.root.betaHistory = [Infinity];
       s.currentNode = s.root;
+      s.explorationPath = [s.root];
     }
     while (s.currentNode) {
-      // Save history before each step for full replayability if desired, 
-      // but here we just run to the end. History is for manual stepping.
+      // Save history before each step
       s.history.push(JSON.stringify({
         root: s.root.serialize(),
         currentNodePath: getNodePath(s.currentNode, s.root),
         isRunning: s.isRunning,
+        explorationPath: s.explorationPath.map(n => getNodePath(n, s.root)),
       }));
       s.currentNode = s.currentNode.minimax(s.useAlphaBeta);
+      s.explorationPath = buildExplorationPath(s.currentNode);
     }
+    
+    // After completion, compute the final optimal global path
+    s.finalGlobalPath = computeGlobalBestPath(s.root);
   }));
 };
 
 export const stepBack = () => {
   setState(produce((s) => {
     if (s.history.length === 0) return;
-    const { root: prevRootData, currentNodePath, isRunning } = JSON.parse(s.history.pop());
+    const { root: prevRootData, currentNodePath, isRunning, explorationPath } = JSON.parse(s.history.pop());
     s.root = Node.deserialize(prevRootData);
     s.layers = rebuildLayerCache(s.root);
     s.currentNode = findNodeByPath(currentNodePath, s.root);
     s.isRunning = isRunning;
     s.selectedNode = null;
+    // Restore exploration path if available
+    if (explorationPath && Array.isArray(explorationPath)) {
+      s.explorationPath = explorationPath.map((path: number[]) => findNodeByPath(path, s.root)).filter((n: Node | null) => n !== null);
+    } else {
+      s.explorationPath = buildExplorationPath(s.currentNode);
+    }
   }));
 };
 

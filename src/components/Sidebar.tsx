@@ -3,6 +3,8 @@ import {
   useTreeState, 
   setUseAlphaBeta, 
   setShowHistory,
+  setShowLocalPath,
+  setShowGlobalPath,
   runAll, 
   stepForward, 
   stepBack, 
@@ -91,6 +93,44 @@ export const Sidebar: Component = () => {
             </div>
             <small class="text-muted d-block mt-1">
               Display history of alpha-beta values in nodes
+            </small>
+          </div>
+
+          {/* Local Best Path Toggle */}
+          <div class="mb-3 p-3 bg-white rounded border">
+            <div class="form-check form-switch">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="showLocalPathToggle" 
+                checked={state.showLocalPath} 
+                onChange={(e) => setShowLocalPath(e.currentTarget.checked)}
+              />
+              <label class="form-check-label fw-bold" for="showLocalPathToggle">
+                <i class="fas fa-code-branch me-2" style={{ color: "#ff9800" }}></i>Show Local Best Path
+              </label>
+            </div>
+            <small class="text-muted d-block mt-1">
+              Highlight current best child as algorithm explores (orange)
+            </small>
+          </div>
+
+          {/* Global Best Path Toggle */}
+          <div class="mb-3 p-3 bg-white rounded border">
+            <div class="form-check form-switch">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="showGlobalPathToggle" 
+                checked={state.showGlobalPath} 
+                onChange={(e) => setShowGlobalPath(e.currentTarget.checked)}
+              />
+              <label class="form-check-label fw-bold" for="showGlobalPathToggle">
+                <i class="fas fa-route me-2" style={{ color: "#00bcd4" }}></i>Show Exploration Path
+              </label>
+            </div>
+            <small class="text-muted d-block mt-1">
+              Highlight current exploration path (cyan) / final optimal path (purple)
             </small>
           </div>
           

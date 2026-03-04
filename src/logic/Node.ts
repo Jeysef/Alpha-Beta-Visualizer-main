@@ -13,6 +13,7 @@ export class Node {
   // Algorithm states
   childSearchDone: boolean = false;
   currentChildSearch: number = 0;
+  currentBestChildIndex: number = -1; // -1 means no best child yet
   alpha: number | null = null;
   beta: number | null = null;
   alphaHistory: number[] = [];
@@ -65,6 +66,7 @@ export class Node {
       step: this.step,
       childSearchDone: this.childSearchDone,
       currentChildSearch: this.currentChildSearch,
+      currentBestChildIndex: this.currentBestChildIndex,
       alpha: alphaVal,
       beta: betaVal,
       alphaHistory: serializeArray(this.alphaHistory),
@@ -88,6 +90,7 @@ export class Node {
     node.step = data.step || 0;
     node.childSearchDone = !!data.childSearchDone;
     node.currentChildSearch = data.currentChildSearch || 0;
+    node.currentBestChildIndex = data.currentBestChildIndex ?? -1;
     node.alpha = parseVal(data.alpha);
     node.beta = parseVal(data.beta);
     node.alphaHistory = (data.alphaHistory || []).map(parseVal);
@@ -104,6 +107,7 @@ export class Node {
     if (this.step === 0) {
       this.childSearchDone = false;
       this.currentChildSearch = 0;
+      this.currentBestChildIndex = -1;
       if (this.alpha !== null) this.alphaHistory = [this.alpha];
       if (this.beta !== null) this.betaHistory = [this.beta];
       
@@ -144,6 +148,10 @@ export class Node {
         if (this.max) {
           const prevVal = this.value as number;
           this.value = Math.max(prevVal, childValue);
+          // Update current best child only if this child is strictly better
+          if (childValue > prevVal) {
+            this.currentBestChildIndex = this.currentChildSearch;
+          }
           if (useAlphaBeta) {
             const prevAlpha = this.alpha ?? -Infinity;
             this.alpha = Math.max(prevAlpha, childValue);
@@ -154,6 +162,10 @@ export class Node {
         } else {
           const prevVal = this.value as number;
           this.value = Math.min(prevVal, childValue);
+          // Update current best child only if this child is strictly better
+          if (childValue < prevVal) {
+            this.currentBestChildIndex = this.currentChildSearch;
+          }
           if (useAlphaBeta) {
             const prevBeta = this.beta ?? Infinity;
             this.beta = Math.min(prevBeta, childValue);
@@ -175,16 +187,39 @@ export class Node {
     return null;
   }
 
-  draw(ctx: CanvasRenderingContext2D, useAlphaBeta: boolean, isSelected: boolean, showHistory: boolean): void {
+  draw(ctx: CanvasRenderingContext2D, useAlphaBeta: boolean, isSelected: boolean, showHistory: boolean, showLocalPath: boolean = false, showGlobalPath: boolean = false, explorationPath: Node[] = [], finalGlobalPath: Node[] = []): void {
+    // Create sets for O(1) lookup
+    const explorationPathSet = new Set(explorationPath);
+    const finalGlobalPathSet = new Set(finalGlobalPath);
+    
     // Draw edges first
-    for (const node of this.children) {
+    for (let i = 0; i < this.children.length; i++) {
+      const node = this.children[i];
       ctx.lineWidth = Math.max(1, Node.radius / 15);
-      ctx.strokeStyle = node.pruned ? "#bbbbbb" : "#000000";
+      
+      // Determine edge color based on path highlighting
+      const isLocalBest = showLocalPath && this.currentBestChildIndex === i;
+      const isOnExplorationPath = showGlobalPath && explorationPathSet.has(node);
+      const isOnFinalGlobalPath = showGlobalPath && finalGlobalPathSet.has(node);
+      
+      // Priority: Final global path > Exploration path > Local best > Normal > Pruned
+      if (node.pruned) {
+        ctx.strokeStyle = "#bbbbbb";
+      } else if (showGlobalPath && isOnFinalGlobalPath) {
+        ctx.strokeStyle = "#9c27b0"; // Purple for final global best path
+      } else if (showGlobalPath && isOnExplorationPath) {
+        ctx.strokeStyle = "#00bcd4"; // Cyan for current exploration path
+      } else if (showLocalPath && isLocalBest) {
+        ctx.strokeStyle = "#ff9800"; // Orange for local best child
+      } else {
+        ctx.strokeStyle = "#000000";
+      }
+      
       ctx.beginPath();
       ctx.moveTo(this.pos[0], this.pos[1] + Node.radius - 1);
       ctx.lineTo(node.pos[0], node.pos[1] - Node.radius + 1);
       ctx.stroke();
-      node.draw(ctx, useAlphaBeta, false, showHistory); // Only the root call handles selection for its node
+      node.draw(ctx, useAlphaBeta, false, showHistory, showLocalPath, showGlobalPath, explorationPath, finalGlobalPath);
     }
 
     // Node body
