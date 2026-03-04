@@ -138,3 +138,14 @@ body {
         padding: 10px 15px;
     }
 }
+
+/* Drag and Drop styles */
+#canvas.dragging {
+    cursor: grabbing !important;
+}
+
+.drag-feedback {
+    pointer-events: none;
+    position: absolute;
+    z-index: 1000;
+}

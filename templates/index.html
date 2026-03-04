@@ -1,14 +1,14 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador Alpha-Beta - Explorador Interactivo de Algoritmos</title>
+    <title>Alpha-Beta Visualizer - Interactive Algorithm Explorer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel='icon' href="{{ url_for('static', filename='images/favicon.ico') }}">
-    <meta name="description" content="Herramienta de visualización interactiva para el algoritmo de poda Alpha-Beta en árboles minimax">
+    <meta name="description" content="Interactive visualization tool for the Alpha-Beta pruning algorithm in minimax trees">
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -56,10 +56,10 @@
         <div class="container-fluid">
             <a class="navbar-brand fw-bold" href="#">
                 <i class="fas fa-tree me-2"></i>
-                Visualizador Alpha-Beta
+                Alpha-Beta Visualizer
             </a>
             <div class="navbar-text d-none d-md-block">
-                <small class="text-light opacity-75">Algoritmo de Poda Alpha-Beta Interactivo</small>
+                <small class="text-light opacity-75">Interactive Alpha-Beta Pruning Algorithm</small>
             </div>
         </div>
     </nav>
@@ -73,7 +73,7 @@
                     <!-- Algorithm Controls -->
                     <div class="mb-4">
                         <h5 class="text-dark fw-bold mb-3">
-                            <i class="fas fa-play-circle me-2"></i>Control del Algoritmo
+                            <i class="fas fa-play-circle me-2"></i>Algorithm Control
                         </h5>
                         
                         <!-- Algorithm Mode Toggle -->
@@ -81,32 +81,32 @@
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" id="alphaBetaToggle" checked>
                                 <label class="form-check-label fw-bold" for="alphaBetaToggle" id="toggleLabel">
-                                    <i class="fas fa-cut me-2"></i>Poda Alpha-Beta
+                                    <i class="fas fa-cut me-2"></i>Alpha-Beta Pruning
                                 </label>
                             </div>
                             <small class="text-muted d-block mt-1" id="toggleDescription">
-                                Algoritmo optimizado con poda alpha-beta
+                                Optimized algorithm with alpha-beta pruning
                             </small>
                         </div>
                         
                         <div class="d-grid gap-2">
                             <button id="run" class="btn btn-dark btn-lg">
-                                <i class="fas fa-play me-2"></i>Ejecutar Completo
+                                <i class="fas fa-play me-2"></i>Run All
                             </button>
                             <div class="row g-2">
                                 <div class="col-6">
                                     <button id="stepBack" class="btn btn-outline-secondary w-100">
-                                        <i class="fas fa-step-backward me-1"></i>Atrás
+                                        <i class="fas fa-step-backward me-1"></i>Back
                                     </button>
                                 </div>
                                 <div class="col-6">
                                     <button id="step" class="btn btn-secondary w-100">
-                                        <i class="fas fa-step-forward me-1"></i>Adelante
+                                        <i class="fas fa-step-forward me-1"></i>Forward
                                     </button>
                                 </div>
                             </div>
                             <button id="reset" class="btn btn-outline-dark">
-                                <i class="fas fa-redo me-2"></i>Reiniciar
+                                <i class="fas fa-redo me-2"></i>Reset
                             </button>
                         </div>
                     </div>
@@ -114,33 +114,57 @@
                     <!-- Tree Generator -->
                     <div class="mb-4">
                         <h5 class="text-dark fw-bold mb-3">
-                            <i class="fas fa-magic me-2"></i>Generar Árbol
+                            <i class="fas fa-magic me-2"></i>Generate Tree
                         </h5>
-                        <button id="generateTree" class="btn btn-dark w-100">
-                            <i class="fas fa-dice me-2"></i>Generar Árbol Aleatorio
-                        </button>
+                        <div class="d-grid gap-2">
+                            <button id="generateTree" class="btn btn-dark w-100">
+                                <i class="fas fa-dice me-2"></i>Generate Random Tree
+                            </button>
+                            <button id="loadImageGraph" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-image me-2"></i>Load Image Graph
+                            </button>
+                            <button id="resetView" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-expand me-2"></i>Reset View
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Save & Load -->
+                    <div class="mb-4">
+                        <h5 class="text-dark fw-bold mb-3">
+                            <i class="fas fa-save me-2"></i>Save & Load
+                        </h5>
+                        <div class="d-grid gap-2">
+                            <button id="exportJSON" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-file-download me-2"></i>Export JSON
+                            </button>
+                            <button id="importJSONBtn" class="btn btn-outline-dark w-100">
+                                <i class="fas fa-file-upload me-2"></i>Import JSON
+                            </button>
+                            <input type="file" id="importJSONInput" class="d-none" accept=".json">
+                        </div>
                     </div>
 
                     <!-- Node Information -->
                     <div class="mb-4">
                         <h5 class="text-dark fw-bold mb-3">
-                            <i class="fas fa-circle-nodes me-2"></i>Información del Nodo
+                            <i class="fas fa-circle-nodes me-2"></i>Node Information
                         </h5>
                         
                         <!-- Unselected state -->
                         <div id="unselectedInfo" class="alert alert-light border d-flex align-items-center">
                             <i class="fas fa-mouse-pointer me-2 text-secondary"></i>
                             <div>
-                                <strong class="text-dark">Selecciona un nodo</strong><br>
-                                <small class="text-muted">Haz clic en los nodos hoja para editar valores</small>
+                                <strong class="text-dark">Select a node</strong><br>
+                                <small class="text-muted">Click to edit values, drag nodes to reorganize, wheel to zoom, drag background to pan</small>
                             </div>
                         </div>
 
                         <!-- Running state -->
                         <div id="runningInfo" class="alert alert-secondary d-none">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Algoritmo en ejecución</strong><br>
-                            <small>Reinicia para editar nodos</small>
+                            <strong>Algorithm Running</strong><br>
+                            <small>Reset to edit nodes</small>
                         </div>
 
                         <!-- Selected node info -->
@@ -148,17 +172,26 @@
                             <div class="card border-dark">
                                 <div class="card-body">
                                     <h6 class="card-title text-dark mb-2">
-                                        <i class="fas fa-dot-circle me-1"></i>Nodo Seleccionado
+                                        <i class="fas fa-dot-circle me-1"></i>Selected Node
                                     </h6>
                                     <p id="nodeTypeText" class="card-text mb-2"></p>
-                                    <p id="nodeValueText" class="card-text mb-3"></p>
+                                    
+                                    <!-- Centralized Node Value Input -->
+                                    <div id="nodeValueContainer" class="mb-3">
+                                        <label for="nodeValueInput" class="form-label small fw-bold mb-1">Node Value:</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" id="nodeValueInput" class="form-control" placeholder="Value or 'inf'">
+                                            <button class="btn btn-outline-dark" type="button" id="setInfBtn" title="Positive Infinity">&infin;</button>
+                                            <button class="btn btn-outline-dark" type="button" id="setNegInfBtn" title="Negative Infinity">-&infin;</button>
+                                        </div>
+                                    </div>
                                     
                                     <div class="d-grid gap-2">
                                         <button id="addChild" class="btn btn-outline-dark btn-sm">
-                                            <i class="fas fa-plus me-1"></i>Añadir Hijo
+                                            <i class="fas fa-plus me-1"></i>Add Child
                                         </button>
                                         <button id="deleteNode" class="btn btn-outline-secondary btn-sm">
-                                            <i class="fas fa-trash me-1"></i>Eliminar Nodo
+                                            <i class="fas fa-trash me-1"></i>Delete Node
                                         </button>
                                     </div>
                                 </div>
