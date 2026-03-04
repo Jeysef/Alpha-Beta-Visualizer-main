@@ -174,7 +174,7 @@ Node.prototype.draw = function(ctx) {
         return;
     }
 
-    ctx.font = "bold " + Node.radius / 2.5 + "px Helvetica";
+    ctx.font = "bold " + Node.radius / 1.8 + "px Helvetica";
     
     // Set text color based on pruned status
     if (this.pruned) {
@@ -195,7 +195,7 @@ Node.prototype.draw = function(ctx) {
         } else {
             alphaText += this.alpha;
         }
-        ctx.fillText(alphaText, this.pos[0], this.pos[1] - Node.radius * 2.2);
+        ctx.fillText(alphaText, this.pos[0], this.pos[1] - Node.radius * 2.5);
         
         var betaText = "β: ";
         if (this.beta == Number.POSITIVE_INFINITY) {
@@ -207,27 +207,28 @@ Node.prototype.draw = function(ctx) {
         } else {
             betaText += this.beta;
         }
-        ctx.fillText(betaText, this.pos[0], this.pos[1] - Node.radius * 1.7);
+        ctx.fillText(betaText, this.pos[0], this.pos[1] - Node.radius * 1.8);
     }
 };
 
 // Method to detect if a click position is within this node or its children
 Node.prototype.getNodeAtPosition = function(x, y) {
+    // Check children recursively first (reverse order to pick top-most nodes)
+    for (var i = this.children.length - 1; i >= 0; i--) {
+        var childResult = this.children[i].getNodeAtPosition(x, y);
+        if (childResult != null) {
+            return childResult;
+        }
+    }
+
     // Check if click is within this node's circle
     var dx = x - this.pos[0];
     var dy = y - this.pos[1];
     var distance = Math.sqrt(dx * dx + dy * dy);
     
-    if (distance <= Node.radius) {
+    // Add a small 20% "forgiveness" margin to the radius for easier clicking
+    if (distance <= Node.radius * 1.2) {
         return this;
-    }
-    
-    // Check children recursively
-    for (const child of this.children) {
-        var childResult = child.getNodeAtPosition(x, y);
-        if (childResult != null) {
-            return childResult;
-        }
     }
     
     return null;
@@ -340,16 +341,42 @@ function NodeManager(canvasID) {
     this.offset = { x: 0, y: 0 };
     this.isPanning = false;
     this.lastMousePos = { x: 0, y: 0 };
+    this.isSpacePressed = false;
 
     window.addEventListener("resize", () => {
         // Resize canvas and redraw on window resize
         this.resizeCanvas();
         setTimeout(() => this.draw(), 100);
     });
+    
+    window.addEventListener("keydown", (e) => {
+        // Don't trigger shortcuts if user is typing in an input field
+        if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+        if (e.code === "Space") {
+            this.isSpacePressed = true;
+            if (!this.isDragging) this.canvas.style.cursor = "grab";
+        } else if (e.code === "ArrowRight") {
+            this.step();
+        } else if (e.code === "ArrowLeft") {
+            this.stepBack();
+        } else if (e.code === "KeyR") {
+            this.reset();
+        }
+    });
+    
+    window.addEventListener("keyup", (e) => {
+        if (e.code === "Space") {
+            this.isSpacePressed = false;
+            if (!this.isPanning) this.canvas.style.cursor = "crosshair";
+        }
+    });
+
     this.canvas.addEventListener("mousedown", this.onMouseDown.bind(this));
     this.canvas.addEventListener("mousemove", this.onMouseMove.bind(this));
     this.canvas.addEventListener("mouseup", this.onMouseUp.bind(this));
     this.canvas.addEventListener("wheel", this.onWheel.bind(this), { passive: false });
+    this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     
     document.getElementById("run").addEventListener("click", this.run.bind(this));
     document.getElementById("step").addEventListener("click", this.step.bind(this));
@@ -1274,20 +1301,25 @@ NodeManager.prototype.deleteNode = function() {
 };
 
 NodeManager.prototype.onMouseDown = function(event) {
-    console.log("Mouse down detected!", event.offsetX, event.offsetY);
-    
     const transformed = this.getTransformedPoint(event.offsetX, event.offsetY);
-    const tx = transformed.x;
-    const ty = transformed.y;
     
+    // Always allow panning with middle click (button 1), right click (button 2) or left click (button 0) + Space
+    const isPanModifier = event.button === 1 || event.button === 2 || (event.button === 0 && this.isSpacePressed);
+    
+    if (isPanModifier) {
+        this.isPanning = true;
+        this.lastMousePos = { x: event.offsetX, y: event.offsetY };
+        this.canvas.style.cursor = "grabbing";
+        return;
+    }
+
     if (this.selected == -1) {
-        console.log("Algorithm is running, click ignored");
         return;
     }
     
     var clickedNode = null;
-    if (this.nodes.length > 0) {
-        clickedNode = this.nodes[0][0].getNodeAtPosition(tx, ty);
+    if (this.nodes.length > 0 && this.nodes[0][0]) {
+        clickedNode = this.nodes[0][0].getNodeAtPosition(transformed.x, transformed.y);
     }
     
     if (clickedNode) {
@@ -1300,7 +1332,7 @@ NodeManager.prototype.onMouseDown = function(event) {
         }
     } else {
         this.selected = null;
-        // Start panning
+        // Start panning with left click on background
         this.isPanning = true;
         this.lastMousePos = { x: event.offsetX, y: event.offsetY };
         this.canvas.style.cursor = "grabbing";
@@ -1315,6 +1347,16 @@ NodeManager.prototype.onMouseMove = function(event) {
     this.mousePos = transformed;
     
     if (this.isDragging) {
+        // Auto-panning when dragging near canvas edges
+        const margin = 50;
+        const panSpeed = 8;
+        let needsRedraw = false;
+        
+        if (event.offsetX < margin) { this.offset.x += panSpeed; needsRedraw = true; }
+        if (event.offsetX > this.canvas.width - margin) { this.offset.x -= panSpeed; needsRedraw = true; }
+        if (event.offsetY < margin) { this.offset.y += panSpeed; needsRedraw = true; }
+        if (event.offsetY > this.canvas.height - margin) { this.offset.y -= panSpeed; needsRedraw = true; }
+
         // Find potential parent or sibling
         this.hoverNode = this.nodes[0][0].getNodeAtPosition(transformed.x, transformed.y);
         
@@ -1337,7 +1379,12 @@ NodeManager.prototype.onMouseMove = function(event) {
         if (this.nodes.length > 0 && this.nodes[0][0]) {
             hoveredNode = this.nodes[0][0].getNodeAtPosition(transformed.x, transformed.y);
         }
-        this.canvas.style.cursor = hoveredNode ? "pointer" : "crosshair";
+        
+        if (this.isSpacePressed) {
+            this.canvas.style.cursor = "grab";
+        } else {
+            this.canvas.style.cursor = hoveredNode ? "pointer" : "crosshair";
+        }
     }
 };
 
@@ -1360,6 +1407,13 @@ NodeManager.prototype.onMouseUp = function(event) {
         this.draw();
     } else if (this.isPanning) {
         this.isPanning = false;
+    }
+    
+    // Finalize cursor based on spacebar state
+    if (this.isSpacePressed) {
+        this.canvas.style.cursor = "grab";
+    } else {
+        // We'll re-evaluate the cursor in onMouseMove if needed, but crosshair is default
         this.canvas.style.cursor = "crosshair";
     }
 };
@@ -1694,6 +1748,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         console.log("NodeManager created successfully");
+
+        // Sidebar collapsible toggle
+        const sidebarToggle = document.getElementById("sidebarToggle");
+        const sidebar = document.getElementById("sidebar");
+
+        if (sidebarToggle && sidebar) {
+            sidebarToggle.addEventListener("click", function() {
+                sidebar.classList.toggle("collapsed");
+                
+                // Redraw canvas after transition
+                setTimeout(() => {
+                    node_manager.resizeCanvas();
+                    node_manager.draw();
+                }, 305); // slightly more than transition duration
+            });
+        }
         
         // Generate a default tree with proper values
         console.log("Generating default tree...");

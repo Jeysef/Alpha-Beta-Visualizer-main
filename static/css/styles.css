@@ -139,6 +139,43 @@ body {
     }
 }
 
+/* Sidebar toggle functionality */
+#sidebar {
+    transition: all 0.3s ease;
+    overflow-x: hidden;
+    white-space: nowrap;
+    display: block;
+}
+
+#sidebar .sidebar-content {
+    transition: opacity 0.2s ease;
+    opacity: 1;
+    min-width: 250px;
+}
+
+#sidebar.collapsed {
+    width: 0 !important;
+    padding: 0 !important;
+    border-right: none !important;
+    flex: 0 0 0 !important;
+    max-width: 0 !important;
+    pointer-events: none;
+}
+
+#sidebar.collapsed .sidebar-content {
+    opacity: 0;
+}
+
+#canvas-area {
+    transition: all 0.3s ease;
+    flex: 1 1 auto !important;
+    max-width: 100% !important;
+}
+
+.sidebar-content {
+    min-width: 250px;
+}
+
 /* Drag and Drop styles */
 #canvas.dragging {
     cursor: grabbing !important;
