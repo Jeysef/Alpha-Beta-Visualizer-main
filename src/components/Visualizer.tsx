@@ -1,9 +1,11 @@
 import { createEffect, onMount, onCleanup, type Component } from "solid-js";
 import { useTreeState, setSelectedNode, setZoom } from "../store/treeStore";
+import { useUIState } from "../store/uiStore";
 import { Node } from "../logic/Node";
 
 export const Visualizer: Component = () => {
   const state = useTreeState();
+  const { sidebarVisible } = useUIState();
   let canvasRef: HTMLCanvasElement | undefined;
   let isPanning = false;
   let lastMousePos = { x: 0, y: 0 };
@@ -99,17 +101,18 @@ export const Visualizer: Component = () => {
     }
   };
 
-  onMount(() => {
-    const resize = () => {
-      if (canvasRef) {
-        const parent = canvasRef.parentElement;
-        if (parent) {
-          canvasRef.width = parent.clientWidth;
-          canvasRef.height = parent.clientHeight;
-          draw();
-        }
+  const resize = () => {
+    if (canvasRef) {
+      const parent = canvasRef.parentElement;
+      if (parent) {
+        canvasRef.width = parent.clientWidth;
+        canvasRef.height = parent.clientHeight;
+        draw();
       }
-    };
+    }
+  };
+
+  onMount(() => {
     window.addEventListener("resize", resize);
     resize();
 
@@ -140,6 +143,14 @@ export const Visualizer: Component = () => {
     state.offset;
     state.layers;
     draw();
+  });
+
+  createEffect(() => {
+    // Re-calculate size when sidebar visibility changes
+    if (sidebarVisible() || !sidebarVisible()) {
+      // Delay slightly to allow DOM to update classes if needed
+      setTimeout(resize, 0);
+    }
   });
 
   const onMouseDown = (e: MouseEvent) => {
@@ -188,7 +199,10 @@ export const Visualizer: Component = () => {
   };
 
   return (
-    <div id="canvas-area" class="col-lg-9 col-md-8 p-3 d-flex flex-column h-100">
+    <div 
+      id="canvas-area" 
+      class={sidebarVisible() ? "col-lg-9 col-md-8 p-3 d-flex flex-column h-100" : "col-12 p-3 d-flex flex-column h-100"}
+    >
       <div class="canvas-container flex-grow-1 d-flex align-items-center justify-content-center bg-white border rounded shadow-sm position-relative overflow-hidden">
         <canvas 
           ref={canvasRef} 

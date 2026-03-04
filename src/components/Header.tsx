@@ -1,10 +1,12 @@
 import { type Component } from "solid-js";
+import { useUIState } from "../store/uiStore";
 
 export const Header: Component = () => {
+  const { toggleSidebar } = useUIState();
   return (
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
       <div class="container-fluid">
-        <button id="sidebarToggle" class="btn btn-outline-light me-3">
+        <button id="sidebarToggle" class="btn btn-outline-light me-3" onClick={toggleSidebar}>
           <i class="fas fa-bars"></i>
         </button>
         <a class="navbar-brand fw-bold" href="#">
