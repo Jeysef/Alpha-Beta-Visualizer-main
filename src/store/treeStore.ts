@@ -1,5 +1,6 @@
 import { createStore, produce } from "solid-js/store";
 import { Node } from "../logic/Node";
+import sampleData from "./sampleData.json";
 
 export interface TreeState {
   root: Node | null;
@@ -374,6 +375,84 @@ export const updateValue = (val: number | null) => {
   }));
 };
 
+// Check if a node is a descendant of another (to prevent circular references)
+export const isDescendant = (parent: Node, potentialDescendant: Node): boolean => {
+  for (const child of parent.children) {
+    if (child === potentialDescendant || isDescendant(child, potentialDescendant)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// Move a node to a new parent
+export const moveNode = (node: Node, newParent: Node) => {
+  setState(produce((s) => {
+    if (!s.root || !node.parent) return;
+    
+    // Remove from old parent
+    const oldParent = node.parent;
+    const index = oldParent.children.indexOf(node);
+    if (index > -1) {
+      oldParent.children.splice(index, 1);
+    }
+    
+    // Add to new parent
+    node.parent = newParent;
+    newParent.children.push(node);
+    newParent.value = null; // Internal nodes have no value
+    
+    // Update recursively if moved to a different parent
+    if (oldParent !== newParent) {
+      const updateRecursive = (n: Node, layer: number, max: boolean) => {
+        n.layer = layer;
+        n.max = max;
+        for (const child of n.children) {
+          updateRecursive(child, layer + 1, !max);
+        }
+      };
+      updateRecursive(node, newParent.layer + 1, !newParent.max);
+    }
+    
+    // Rebuild layers
+    s.layers = rebuildLayerCache(s.root);
+    
+    // Reset algorithm state
+    s.isRunning = false;
+    s.isComplete = false;
+    s.currentNode = null;
+    s.history = [];
+    s.explorationPath = [];
+    s.finalGlobalPath = [];
+    s.selectedNode = null;
+  }));
+};
+
+// Reorder a node among siblings
+export const reorderNode = (node: Node, sibling: Node) => {
+  setState(produce((s) => {
+    const parent = node.parent;
+    if (!parent) return;
+    
+    const oldIndex = parent.children.indexOf(node);
+    const newIndex = parent.children.indexOf(sibling);
+    
+    if (oldIndex > -1 && newIndex > -1 && oldIndex !== newIndex) {
+      parent.children.splice(oldIndex, 1);
+      parent.children.splice(newIndex, 0, node);
+      
+      // Reset algorithm state
+      s.isRunning = false;
+      s.isComplete = false;
+      s.currentNode = null;
+      s.history = [];
+      s.explorationPath = [];
+      s.finalGlobalPath = [];
+      s.selectedNode = null;
+    }
+  }));
+};
+
 export const setZoom = (scale: number, offset: { x: number; y: number }) => {
   setState({ scale, offset });
 };
@@ -414,498 +493,6 @@ export const importJSON = (jsonString: string) => {
 };
 
 export const loadImageGraph = () => {
-  const sampleData = {
-    "value": null,
-    "max": true,
-    "layer": 0,
-    "children": [
-      {
-        "value": 0,
-        "max": false,
-        "layer": 1,
-        "children": [
-          {
-            "value": 0,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": 0,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": 0,
-                    "max": true,
-                    "layer": 4,
-                    "children": []
-                  },
-                  {
-                    "value": 5,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": -4,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -9,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 5,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": "-inf",
-                    "max": true,
-                    "layer": 4,
-                    "children": []
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "value": -4,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": -4,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": -4,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": -4,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": 1,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 5,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 5,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 8,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -12,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": "inf",
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -10,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "value": null,
-        "max": false,
-        "layer": 1,
-        "children": [
-          {
-            "value": null,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 7,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -10,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 9,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 2,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 9,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 3,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 7,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -9,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -4,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "value": null,
-        "max": false,
-        "layer": 1,
-        "children": [
-          {
-            "value": null,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": "inf",
-                "max": false,
-                "layer": 3,
-                "children": []
-              },
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 3,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": -2,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -5,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -7,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "value": null,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": 0,
-                    "max": true,
-                    "layer": 4,
-                    "children": []
-                  }
-                ]
-              },
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": -12,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -11,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 8,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": -4,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "value": null,
-        "max": false,
-        "layer": 1,
-        "children": [
-          {
-            "value": null,
-            "max": true,
-            "layer": 2,
-            "children": [
-              {
-                "value": null,
-                "max": false,
-                "layer": 3,
-                "children": [
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": -6,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  },
-                  {
-                    "value": null,
-                    "max": true,
-                    "layer": 4,
-                    "children": [
-                      {
-                        "value": 3,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      },
-                      {
-                        "value": 1,
-                        "max": false,
-                        "layer": 5,
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  };
 
   const root = Node.deserialize(sampleData);
   setState({
