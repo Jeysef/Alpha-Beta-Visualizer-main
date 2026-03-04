@@ -11,6 +11,7 @@ export interface TreeState {
   scale: number;
   offset: { x: number; y: number };
   layers: Node[][];
+  showHistory: boolean;
 }
 
 const initialState: TreeState = {
@@ -23,6 +24,7 @@ const initialState: TreeState = {
   scale: 1.0,
   offset: { x: 0, y: 0 },
   layers: [],
+  showHistory: false,
 };
 
 const [state, setState] = createStore<TreeState>(initialState);
@@ -32,6 +34,7 @@ export const useTreeState = () => state;
 
 // Actions
 export const setUseAlphaBeta = (value: boolean) => setState("useAlphaBeta", value);
+export const setShowHistory = (value: boolean) => setState("showHistory", value);
 
 export const setSelectedNode = (node: Node | null) => {
   if (state.isRunning) return;
@@ -49,6 +52,8 @@ export const resetAlgorithm = () => {
         n.step = 0;
         n.alpha = null;
         n.beta = null;
+        n.alphaHistory = [];
+        n.betaHistory = [];
         n.childSearchDone = false;
         n.currentChildSearch = 0;
         n.returnValue = null;
@@ -158,10 +163,27 @@ export const stepForward = () => {
       s.selectedNode = null;
       s.root.alpha = -Infinity;
       s.root.beta = Infinity;
+      s.root.alphaHistory = [-Infinity];
+      s.root.betaHistory = [Infinity];
       s.currentNode = s.root;
     }
   }));
 };
+
+// export const runAll = () => {
+//   setState(produce((s) => {
+//     if (!s.root) return;
+//     if (!s.currentNode) {
+//       s.isRunning = true;
+//       s.selectedNode = null;
+//       s.root.alpha = -Infinity;
+//       s.root.beta = Infinity;
+//       s.root.alphaHistory = [-Infinity];
+//       s.root.betaHistory = [Infinity];
+//       s.currentNode = s.root;
+//     }
+//   }));
+// };
 
 export const runAll = () => {
   setState(produce((s) => {
@@ -171,6 +193,8 @@ export const runAll = () => {
       s.selectedNode = null;
       s.root.alpha = -Infinity;
       s.root.beta = Infinity;
+      s.root.alphaHistory = [-Infinity];
+      s.root.betaHistory = [Infinity];
       s.currentNode = s.root;
     }
     while (s.currentNode) {

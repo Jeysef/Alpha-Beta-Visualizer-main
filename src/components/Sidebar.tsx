@@ -2,6 +2,7 @@ import { Show, type Component } from "solid-js";
 import { 
   useTreeState, 
   setUseAlphaBeta, 
+  setShowHistory,
   runAll, 
   stepForward, 
   stepBack, 
@@ -71,6 +72,25 @@ export const Sidebar: Component = () => {
             </div>
             <small class="text-muted d-block mt-1">
               Optimized algorithm with alpha-beta pruning
+            </small>
+          </div>
+
+          {/* Node History Toggle */}
+          <div class="mb-3 p-3 bg-white rounded border">
+            <div class="form-check form-switch">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="showHistoryToggle" 
+                checked={state.showHistory} 
+                onChange={(e) => setShowHistory(e.currentTarget.checked)}
+              />
+              <label class="form-check-label fw-bold" for="showHistoryToggle">
+                <i class="fas fa-history me-2"></i>Show Node History
+              </label>
+            </div>
+            <small class="text-muted d-block mt-1">
+              Display history of alpha-beta values in nodes
             </small>
           </div>
           

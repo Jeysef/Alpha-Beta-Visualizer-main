@@ -15,6 +15,8 @@ export class Node {
   currentChildSearch: number = 0;
   alpha: number | null = null;
   beta: number | null = null;
+  alphaHistory: number[] = [];
+  betaHistory: number[] = [];
   returnValue: number | null = null;
 
   static radius: number = 0;
@@ -49,6 +51,12 @@ export class Node {
     if (this.returnValue === Infinity) returnVal = "inf";
     if (this.returnValue === -Infinity) returnVal = "-inf";
 
+    const serializeArray = (arr: number[]) => arr.map(v => {
+      if (v === Infinity) return "inf";
+      if (v === -Infinity) return "-inf";
+      return v;
+    });
+
     return {
       value: val,
       max: this.max,
@@ -59,6 +67,8 @@ export class Node {
       currentChildSearch: this.currentChildSearch,
       alpha: alphaVal,
       beta: betaVal,
+      alphaHistory: serializeArray(this.alphaHistory),
+      betaHistory: serializeArray(this.betaHistory),
       returnValue: returnVal,
       children: this.children.map((child) => child.serialize()),
     };
@@ -80,6 +90,8 @@ export class Node {
     node.currentChildSearch = data.currentChildSearch || 0;
     node.alpha = parseVal(data.alpha);
     node.beta = parseVal(data.beta);
+    node.alphaHistory = (data.alphaHistory || []).map(parseVal);
+    node.betaHistory = (data.betaHistory || []).map(parseVal);
     node.returnValue = parseVal(data.returnValue);
 
     node.children = (data.children || []).map((childData: any) =>
@@ -92,6 +104,9 @@ export class Node {
     if (this.step === 0) {
       this.childSearchDone = false;
       this.currentChildSearch = 0;
+      if (this.alpha !== null) this.alphaHistory = [this.alpha];
+      if (this.beta !== null) this.betaHistory = [this.beta];
+      
       if (this.children.length === 0) {
         if (this.parent) {
           this.parent.returnValue = this.value;
@@ -127,14 +142,24 @@ export class Node {
       const childValue = this.returnValue;
       if (childValue !== null) {
         if (this.max) {
-          this.value = Math.max(this.value as number, childValue);
+          const prevVal = this.value as number;
+          this.value = Math.max(prevVal, childValue);
           if (useAlphaBeta) {
-            this.alpha = Math.max(this.alpha ?? -Infinity, childValue);
+            const prevAlpha = this.alpha ?? -Infinity;
+            this.alpha = Math.max(prevAlpha, childValue);
+            if (this.alpha !== prevAlpha) {
+              this.alphaHistory.push(this.alpha);
+            }
           }
         } else {
-          this.value = Math.min(this.value as number, childValue);
+          const prevVal = this.value as number;
+          this.value = Math.min(prevVal, childValue);
           if (useAlphaBeta) {
-            this.beta = Math.min(this.beta ?? Infinity, childValue);
+            const prevBeta = this.beta ?? Infinity;
+            this.beta = Math.min(prevBeta, childValue);
+            if (this.beta !== prevBeta) {
+              this.betaHistory.push(this.beta);
+            }
           }
         }
       }
@@ -150,7 +175,7 @@ export class Node {
     return null;
   }
 
-  draw(ctx: CanvasRenderingContext2D, useAlphaBeta: boolean, isSelected: boolean): void {
+  draw(ctx: CanvasRenderingContext2D, useAlphaBeta: boolean, isSelected: boolean, showHistory: boolean): void {
     // Draw edges first
     for (const node of this.children) {
       ctx.lineWidth = Math.max(1, Node.radius / 15);
@@ -159,7 +184,7 @@ export class Node {
       ctx.moveTo(this.pos[0], this.pos[1] + Node.radius - 1);
       ctx.lineTo(node.pos[0], node.pos[1] - Node.radius + 1);
       ctx.stroke();
-      node.draw(ctx, useAlphaBeta, false); // Only the root call handles selection for its node
+      node.draw(ctx, useAlphaBeta, false, showHistory); // Only the root call handles selection for its node
     }
 
     // Node body
@@ -209,8 +234,22 @@ export class Node {
       ctx.font = `bold ${Node.radius / 1.8}px Helvetica`;
       ctx.fillStyle = "#0000ff";
       
-      const alphaText = `α: ${this.alpha === Infinity ? "Inf" : (this.alpha === -Infinity ? "-Inf" : (this.alpha ?? ""))}`;
-      const betaText = `β: ${this.beta === Infinity ? "Inf" : (this.beta === -Infinity ? "-Inf" : (this.beta ?? ""))}`;
+      const formatVal = (v: number | null) => {
+        if (v === Infinity) return "∞";
+        if (v === -Infinity) return "-∞";
+        return v?.toString() ?? "";
+      };
+
+      let alphaText: string;
+      let betaText: string;
+
+      if (showHistory) {
+        alphaText = `α: [${this.alphaHistory.map(formatVal).join(", ")}]`;
+        betaText = `β: [${this.betaHistory.map(formatVal).join(", ")}]`;
+      } else {
+        alphaText = `α: ${formatVal(this.alpha)}`;
+        betaText = `β: ${formatVal(this.beta)}`;
+      }
       
       ctx.fillText(alphaText, this.pos[0], this.pos[1] - Node.radius * 2.5);
       ctx.fillText(betaText, this.pos[0], this.pos[1] - Node.radius * 1.8);
