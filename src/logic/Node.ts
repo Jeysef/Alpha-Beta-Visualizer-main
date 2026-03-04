@@ -37,21 +37,51 @@ export class Node {
     if (this.value === Infinity) val = "inf";
     if (this.value === -Infinity) val = "-inf";
 
+    let alphaVal: any = this.alpha;
+    if (this.alpha === Infinity) alphaVal = "inf";
+    if (this.alpha === -Infinity) alphaVal = "-inf";
+
+    let betaVal: any = this.beta;
+    if (this.beta === Infinity) betaVal = "inf";
+    if (this.beta === -Infinity) betaVal = "-inf";
+
+    let returnVal: any = this.returnValue;
+    if (this.returnValue === Infinity) returnVal = "inf";
+    if (this.returnValue === -Infinity) returnVal = "-inf";
+
     return {
       value: val,
       max: this.max,
       layer: this.layer,
+      pruned: this.pruned,
+      step: this.step,
+      childSearchDone: this.childSearchDone,
+      currentChildSearch: this.currentChildSearch,
+      alpha: alphaVal,
+      beta: betaVal,
+      returnValue: returnVal,
       children: this.children.map((child) => child.serialize()),
     };
   }
 
   static deserialize(data: any, parent: Node | null = null): Node {
     const node = new Node(data.layer, data.max, parent);
-    let val = data.value;
-    if (val === "inf") val = Infinity;
-    else if (val === "-inf") val = -Infinity;
+    
+    const parseVal = (v: any) => {
+      if (v === "inf") return Infinity;
+      if (v === "-inf") return -Infinity;
+      return v;
+    };
 
-    node.value = val;
+    node.value = parseVal(data.value);
+    node.pruned = !!data.pruned;
+    node.step = data.step || 0;
+    node.childSearchDone = !!data.childSearchDone;
+    node.currentChildSearch = data.currentChildSearch || 0;
+    node.alpha = parseVal(data.alpha);
+    node.beta = parseVal(data.beta);
+    node.returnValue = parseVal(data.returnValue);
+
     node.children = (data.children || []).map((childData: any) =>
       Node.deserialize(childData, node)
     );
@@ -161,10 +191,17 @@ export class Node {
     // Value text
     ctx.fillStyle = "#ffffff";
     if (this.value !== null) {
-      let valueText = this.value.toString();
-      if (this.value === Infinity) valueText = "inf";
-      if (this.value === -Infinity) valueText = "-inf";
-      ctx.fillText(valueText, this.pos[0], this.pos[1] + Node.radius / 15);
+      const isInternal = this.children.length > 0;
+      const hasStartedSearching = this.currentChildSearch > 0 || this.childSearchDone;
+      const isInfinity = this.value === Infinity || this.value === -Infinity;
+      
+      // Don't show infinity on internal nodes if we haven't checked any children yet
+      if (!isInternal || !isInfinity || hasStartedSearching) {
+        let valueText = this.value.toString();
+        if (this.value === Infinity) valueText = "inf";
+        if (this.value === -Infinity) valueText = "-inf";
+        ctx.fillText(valueText, this.pos[0], this.pos[1] + Node.radius / 15);
+      }
     }
 
     // Alpha/Beta text

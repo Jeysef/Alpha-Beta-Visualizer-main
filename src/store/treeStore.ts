@@ -111,12 +111,45 @@ export const generateRandomTree = () => {
   });
 };
 
+// Helpers for finding nodes after deserialization
+const getNodePath = (target: Node | null, root: Node | null): number[] | null => {
+  if (!target || !root) return null;
+  const path: number[] = [];
+  let current: Node | null = target;
+  while (current && current !== root) {
+    if (current.parent) {
+      path.unshift(current.parent.children.indexOf(current));
+      current = current.parent;
+    } else {
+      return null; // Should not happen if target is in root's tree
+    }
+  }
+  return path;
+};
+
+const findNodeByPath = (path: number[] | null, root: Node | null): Node | null => {
+  if (path === null || !root) return null;
+  let current: Node = root;
+  for (const index of path) {
+    if (current.children[index]) {
+      current = current.children[index];
+    } else {
+      return null;
+    }
+  }
+  return current;
+};
+
 export const stepForward = () => {
   setState(produce((s) => {
     if (!s.root) return;
 
     // Save history
-    s.history.push(JSON.stringify(s.root.serialize()));
+    s.history.push(JSON.stringify({
+      root: s.root.serialize(),
+      currentNodePath: getNodePath(s.currentNode, s.root),
+      isRunning: s.isRunning,
+    }));
 
     if (s.currentNode) {
       s.currentNode = s.currentNode.minimax(s.useAlphaBeta);
@@ -141,6 +174,13 @@ export const runAll = () => {
       s.currentNode = s.root;
     }
     while (s.currentNode) {
+      // Save history before each step for full replayability if desired, 
+      // but here we just run to the end. History is for manual stepping.
+      s.history.push(JSON.stringify({
+        root: s.root.serialize(),
+        currentNodePath: getNodePath(s.currentNode, s.root),
+        isRunning: s.isRunning,
+      }));
       s.currentNode = s.currentNode.minimax(s.useAlphaBeta);
     }
   }));
@@ -149,9 +189,12 @@ export const runAll = () => {
 export const stepBack = () => {
   setState(produce((s) => {
     if (s.history.length === 0) return;
-    const prevState = JSON.parse(s.history.pop());
-    s.root = Node.deserialize(prevState);
+    const { root: prevRootData, currentNodePath, isRunning } = JSON.parse(s.history.pop());
+    s.root = Node.deserialize(prevRootData);
     s.layers = rebuildLayerCache(s.root);
+    s.currentNode = findNodeByPath(currentNodePath, s.root);
+    s.isRunning = isRunning;
+    s.selectedNode = null;
   }));
 };
 
